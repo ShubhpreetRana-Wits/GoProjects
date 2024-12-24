@@ -1,0 +1,71 @@
+services:
+  # Go Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: my-go-app
+    environment:
+
+      - PORT=8081
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRY=${JWT_EXPIRY}
+      - SERVICE_NAME=${SERVICE_NAME}
+      - OTLP_ENDPOINT=${OTLP_ENDPOINT}
+    ports:
+      - "8081:8081"  # Exposing the app's port
+    depends_on:
+      - db
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  db:
+    image: postgres:13
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "5433:5432"  # Mapping PostgreSQL's default port to avoid conflicts
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Mount the initialization script
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # # Swagger UI
+  # swagger:
+  #   image: swaggerapi/swagger-ui
+  #   container_name: swagger-ui
+  #   environment:
+  #     - SWAGGER_JSON=http://app:${PORT}/docs/doc.json  # Updated Swagger JSON endpoint
+  #   ports:
+  #     - "8082:8080"  # Exposing Swagger UI on port 8082
+  #   networks:
+  #     - app-network
+  #   depends_on:
+  #     - app
+  #   restart: unless-stopped
+
+# Named Volumes
+volumes:
+  postgres_data:
+
+# Networks
+networks:
+  app-network:
+    # driver: bridge
